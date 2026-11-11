@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>たすポケ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', 'Kiwi Maru', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* 筆算マス目の点線・実線枠 */
+        .hissan-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+        }
+
+        .hissan-box {
+            width: 2.5rem;
+            height: 3.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            border: 2px dashed #94a3b8;
+            background-color: #ffffff;
+            border-radius: 6px;
+        }
+
+        @media (min-width: 640px) {
+            .hissan-box {
+                width: 3.2rem;
+                height: 4.0rem;
+                font-size: 2.2rem;
+            }
+        }
+
+        .hissan-box.ans-box {
+            border: 2.5px solid #f472b6;
+            background-color: #fdf2f8;
+            color: #831843;
+            position: relative;
+        }
+
+        .hissan-box.ans-box.next-target {
+            border-color: #ec4899;
+            background-color: #fce7f3;
+            box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.3);
+            animation: pulse-border 1.5s infinite;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { border-color: #ec4899; }
+            50% { border-color: #f472b6; }
+        }
+
+        .hissan-box.ans-box.filled {
+            border-color: #db2777;
+            background-color: #ffffff;
+            color: #9d174d;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .key-btn {
+            touch-action: manipulation;
+            transition: all 0.08s ease;
+        }
+        .key-btn:active {
+            transform: translateY(2px) scale(0.96);
+        }
+
+        .msg-pop {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* --- ポケモン カードスタイル --- */
+        .card-foil {
+            position: relative;
+            overflow: hidden;
+        }
+        .card-foil::after {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: linear-gradient(
+                115deg,
+                transparent 25%,
+                rgba(255, 255, 255, 0.6) 45%,
+                rgba(255, 0, 128, 0.4) 50%,
+                rgba(0, 255, 255, 0.4) 55%,
+                transparent 75%
+            );
+            transform: rotate(25deg);
+            pointer-events: none;
+            opacity: 0.7;
+            animation: foilShift 4s infinite linear;
+        }
+
+        @keyframes foilShift {
+            0% { transform: translateY(-30%) rotate(25deg); }
+            100% { transform: translateY(30%) rotate(25deg); }
+        }
+
+        .gold-glow {
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.9), 0 0 5px rgba(255, 255, 255, 0.8), inset 0 0 12px rgba(251, 191, 36, 0.6);
+        }
+
+        .super-glow {
+            box-shadow: 0 0 25px rgba(236, 72, 153, 0.9), 0 0 10px rgba(56, 189, 248, 0.9), inset 0 0 15px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes rainbowGlow {
+            0% { box-shadow: 0 0 25px #ef4444, inset 0 0 15px #ef4444; }
+            20% { box-shadow: 0 0 25px #f59e0b, inset 0 0 15px #f59e0b; }
+            40% { box-shadow: 0 0 25px #10b981, inset 0 0 15px #10b981; }
+            60% { box-shadow: 0 0 25px #06b6d4, inset 0 0 15px #06b6d4; }
+            80% { box-shadow: 0 0 25px #8b5cf6, inset 0 0 15px #8b5cf6; }
+            100% { box-shadow: 0 0 25px #ec4899, inset 0 0 15px #ec4899; }
+        }
+        .animate-rainbow-glow {
+            animation: rainbowGlow 2s linear infinite;
+        }
+
+        .btn-3d {
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.25);
+        }
+        .btn-3d:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 rgba(0,0,0,0.25);
+        }
+
+    </style>
+    <!-- Firebase JS SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        window.firebaseModules = {
+            initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+            getFirestore, doc, getDoc, setDoc
+        };
+    </script>
+</head>
+<body class="bg-pink-50 h-screen w-screen overflow-hidden flex flex-col p-2 sm:p-4">
+
+    <!-- ==================== メニュー画面 ==================== -->
+    <div id="menu-screen" class="flex-1 max-w-5xl w-full mx-auto flex flex-col justify-between bg-white rounded-3xl shadow-xl border-4 border-pink-300 p-4 sm:p-6 overflow-y-auto">
+        <!-- ヘッダー (タイトル) -->
+        <div class="text-center shrink-0 my-1 relative flex flex-col items-center">
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-pink-900 flex items-center justify-center gap-2 sm:gap-3">
+                <span>🌸</span> たすポケ
+            </h1>
+            <p class="text-sm sm:text-base font-extrabold text-pink-700 mt-1">ぜんぶで 84もん！ じゅんばんに くりあしていこう</p>
+            
+            <!-- カード図鑑への移動ボタン -->
+            <button onclick="showAlbum()" class="mt-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-extrabold text-sm sm:text-base px-5 py-2 rounded-2xl shadow-lg border-2 border-indigo-200 flex items-center justify-center gap-2 btn-3d">
+                <span>💳 カードずかん</span>
+                <span id="menu-card-count-badge" class="bg-pink-400 text-slate-900 text-xs font-black px-2 py-0.5 rounded-full">0/84</span>
+            </button>
+        </div>
+
+        <!-- メニューボタンエリア -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 my-2 shrink-0">
+            <button id="btn-continue" onclick="startFromContinue()" class="bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-2xl sm:text-4xl px-12 py-5 rounded-3xl shadow-2xl border-b-8 border-emerald-700 flex items-center gap-4 transition transform hover:-translate-y-0.5">
+                <span>▶️ つづきから はじめる</span>
+            </button>
+            <div class="text-xs sm:text-sm font-bold text-pink-800 bg-pink-100 px-4 py-2 rounded-xl border border-pink-300 shadow-sm">
+                👇 やりなおす＝あかいコマをタップ
+            </div>
+        </div>
+
+        <!-- プリント5枚一覧 -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 my-2 items-stretch justify-center">
+            <!-- JSでプリント1〜5のカードを動的生成 -->
+            <div id="print-card-0" class="print-card flex flex-col h-full bg-pink-50/80 border-2 border-pink-300 rounded-2xl p-2 sm:p-2.5 shadow-md hover:shadow-lg transition"></div>
+            <div id="print-card-1" class="print-card flex flex-col h-full bg-pink-50/80 border-2 border-pink-300 rounded-2xl p-2 sm:p-2.5 shadow-md hover:shadow-lg transition"></div>
+            <div id="print-card-2" class="print-card flex flex-col h-full bg-pink-50/80 border-2 border-pink-300 rounded-2xl p-2 sm:p-2.5 shadow-md hover:shadow-lg transition"></div>
+            <div id="print-card-3" class="print-card flex flex-col h-full bg-pink-50/80 border-2 border-pink-300 rounded-2xl p-2 sm:p-2.5 shadow-md hover:shadow-lg transition"></div>
+            <div id="print-card-4" class="print-card flex flex-col h-full bg-pink-50/80 border-2 border-pink-300 rounded-2xl p-2 sm:p-2.5 shadow-md hover:shadow-lg transition"></div>
+        </div>
+
+        <!-- 色の説明（凡例） -->
+        <div class="flex items-center justify-center gap-6 text-sm sm:text-lg font-extrabold text-slate-800 my-2 shrink-0 bg-pink-100 py-3 px-6 rounded-2xl border-2 border-pink-300 self-center shadow-md">
+            <span class="flex items-center gap-2"><span class="w-7 h-7 rounded-md bg-blue-500 inline-block border-2 border-blue-600 shadow"></span> つぎのもんだい</span>
+            <span class="flex items-center gap-2"><span class="w-7 h-7 rounded-md bg-red-500 inline-block border-2 border-red-600 shadow"></span> くりあしたコマ</span>
+            <span class="flex items-center gap-2"><span class="w-7 h-7 rounded-md bg-slate-300 inline-block border-2 border-slate-400 shadow"></span> まだのもんだい</span>
+        </div>
+    </div>
+
+
+    <!-- ==================== 筆算 挑戦画面 ==================== -->
+    <div id="game-screen" class="flex-1 max-w-5xl w-full mx-auto flex-col justify-between hidden h-full">
+
+        <!-- ヘッダーエリア -->
+        <header class="bg-white border-b-2 border-pink-300 rounded-2xl shadow-sm px-3 sm:px-4 py-2 shrink-0">
+            <div class="max-w-5xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <button onclick="showMenu()" class="bg-pink-200 hover:bg-pink-300 active:scale-95 text-pink-900 font-extrabold text-xs sm:text-sm px-3 py-1.5 rounded-xl border border-pink-400 flex items-center gap-1 transition">
+                        🏠 メニューへ
+                    </button>
+                    <button onclick="showAlbum()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm px-3 py-1.5 rounded-xl border border-indigo-400 flex items-center gap-1 transition shadow-sm">
+                        💳 ずかん
+                    </button>
+                    <div>
+                        <h1 id="print-name-badge" class="text-sm sm:text-base font-extrabold text-pink-900 leading-tight">
+                            プリント１ (1もんめ)
+                        </h1>
+                        <p id="print-subtitle" class="text-[10px] sm:text-xs font-bold text-pink-600">たしざん (くりあがりなし・1かい)</p>
+                    </div>
+                </div>
+
+                <!-- サウンド切り替え & 進捗表示 -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex flex-col items-end">
+                        <span class="text-xs font-bold text-pink-800">せいかい: <span id="total-correct-count" class="text-sm font-black text-emerald-600">0</span> / 84もん</span>
+                        <div class="w-24 sm:w-32 bg-pink-100 rounded-full h-2.5 border border-pink-300 overflow-hidden mt-0.5">
+                            <div id="progress-bar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <button id="sound-toggle-btn" class="p-2 rounded-xl bg-pink-100 hover:bg-pink-200 text-pink-800 border border-pink-300 transition">
+                        <svg id="sound-on-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                        <svg id="sound-off-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 筆算カード & テンキーエリア -->
+        <main class="flex-1 flex flex-col md:flex-row items-center justify-center gap-4 my-2 overflow-hidden px-2">
+            <!-- 左：筆算カード -->
+            <div id="hissan-card" class="relative bg-white rounded-3xl border-4 border-pink-300 p-4 sm:p-6 shadow-xl flex flex-col items-center justify-center min-w-[280px] sm:min-w-[360px]">
+                
+                <!-- 二重丸（◎）・フィードバックオーバーレイ -->
+                <div id="feedback-overlay" class="absolute inset-0 bg-white/90 rounded-2xl z-20 flex flex-col items-center justify-center hidden pop-in">
+                    <svg class="w-32 h-32 sm:w-40 sm:h-40 text-red-500 drop-shadow-md" viewBox="0 0 100 100" fill="none" stroke="currentColor">
+                        <circle cx="50" cy="50" r="38" stroke-width="7"/>
+                        <circle cx="50" cy="50" r="22" stroke-width="7"/>
+                    </svg>
+                    <span class="text-2xl font-black text-red-600 mt-2">たいへん よくできました！◎</span>
+                </div>
+
+                <!-- 誤答メッセージ -->
+                <div id="wrong-msg" class="absolute -top-3 bg-rose-500 text-white font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-lg opacity-0 transition-opacity z-10 whitespace-nowrap">
+                    かしこくなるチャンス！もう１かいやってみよう
+                </div>
+
+                <!-- 筆算グリッド -->
+                <div class="relative flex flex-col items-end my-2">
+                    <div class="absolute -left-10 top-1 text-sm font-extrabold text-pink-700 bg-pink-100 px-2 py-0.5 rounded-lg border border-pink-300">
+                        <span id="global-q-num">1</span>
+                    </div>
+                    <div id="row-num1" class="hissan-grid mb-1"></div>
+                    <div class="relative">
+                        <span class="absolute -left-7 top-1 text-3xl font-black text-slate-800">+</span>
+                        <div id="row-num2" class="hissan-grid mb-1"></div>
+                    </div>
+                    <div class="w-full h-1 bg-slate-800 rounded-full my-1"></div>
+                    <div id="row-answer" class="hissan-grid mt-1"></div>
+                </div>
+            </div>
+
+            <!-- 右：テンキーボード -->
+            <div class="bg-pink-100 rounded-3xl border-3 border-pink-300 p-3 sm:p-4 shadow-md flex flex-col gap-2 w-full max-w-[280px] sm:max-w-[320px]">
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="pressKey('7')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">7</button>
+                    <button onclick="pressKey('8')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">8</button>
+                    <button onclick="pressKey('9')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">9</button>
+
+                    <button onclick="pressKey('4')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">4</button>
+                    <button onclick="pressKey('5')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">5</button>
+                    <button onclick="pressKey('6')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">6</button>
+
+                    <button onclick="pressKey('1')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">1</button>
+                    <button onclick="pressKey('2')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">2</button>
+                    <button onclick="pressKey('3')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">3</button>
+
+                    <button onclick="pressKey('0')" class="key-btn bg-white hover:bg-pink-50 text-slate-800 font-extrabold text-2xl py-3 rounded-2xl border-b-4 border-slate-300 shadow">0</button>
+                    <button onclick="pressKey('backspace')" class="key-btn bg-pink-200 hover:bg-pink-300 text-pink-900 font-extrabold text-sm py-3 rounded-2xl border-b-4 border-pink-400 shadow flex items-center justify-center gap-1">
+                        <span>⌫ 1つけす</span>
+                    </button>
+                    <button onclick="pressKey('clear')" class="key-btn bg-rose-200 hover:bg-rose-300 text-rose-900 font-extrabold text-sm py-3 rounded-2xl border-b-4 border-rose-400 shadow">
+                        けす
+                    </button>
+                </div>
+
+                <button onclick="checkAnswer()" class="key-btn bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-black text-xl py-3.5 rounded-2xl border-b-4 border-emerald-700 shadow-lg mt-1 transition flex items-center justify-center gap-2">
+                    <span>かいとう</span>
+                    <span>✓</span>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== カードゲット モーダル ==================== -->
+    <div id="card-get-modal" onclick="closeCardGetModal()" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 hidden cursor-pointer">
+        <div class="bg-slate-900 border-4 border-pink-400 rounded-3xl p-5 max-w-sm w-full text-center space-y-4 shadow-2xl pop-in relative" onclick="event.stopPropagation()">
+            <div class="space-y-1">
+                <span class="inline-block bg-gradient-to-r from-pink-400 to-rose-300 text-slate-900 font-black text-xs px-3 py-1 rounded-full shadow">
+                    ✨ せいかい おめでとう！ ✨
+                </span>
+                <h3 class="text-2xl font-black text-pink-300">ポケモンカード ゲット！</h3>
+            </div>
+            
+            <div id="get-card-preview-container" class="flex justify-center py-2">
+                <!-- 獲得したカードが入る -->
+            </div>
+
+            <button onclick="closeCardGetModal()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg rounded-2xl shadow-lg border-b-4 border-emerald-700 btn-3d">
+                つぎの もんだいへ ▶️
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== カードずかん 画面 ==================== -->
+    <div id="album-screen" class="fixed inset-0 bg-slate-950/95 z-50 flex flex-col p-3 sm:p-5 text-white hidden overflow-hidden">
+        <div class="max-w-5xl w-full mx-auto flex-1 flex flex-col space-y-3 min-h-0">
+            <!-- ヘッダー -->
+            <div class="flex justify-between items-center border-b border-indigo-500/40 pb-3 shrink-0">
+                <div>
+                    <h2 class="text-xl sm:text-2xl font-black text-pink-300 flex items-center gap-2">
+                        <span>⚡</span> ポケモンカードずかん
+                    </h2>
+                    <p class="text-indigo-200 text-xs sm:text-sm font-bold">ゲットしたカードをタップすると おおきく みられるよ！</p>
+                </div>
+                <button onclick="closeAlbum()" class="bg-pink-400 hover:bg-pink-300 text-slate-900 font-black px-4 py-2 rounded-2xl text-sm border-2 border-white shadow-lg btn-3d flex items-center gap-1">
+                    <span>🔙 もどる</span>
+                </button>
+            </div>
+
+            <!-- レア度別フィルター -->
+            <div id="album-filter-bar" class="flex gap-2 overflow-x-auto pb-1 shrink-0">
+                <!-- JSで動的生成 -->
+            </div>
+
+            <!-- カード一覧グリッド -->
+            <div id="album-grid" class="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-1 min-h-0">
+                <!-- 動的生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- カード詳細拡大モーダル -->
+    <div id="card-detail-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 hidden" onclick="closeCardDetailModal()">
+        <div class="relative transform scale-110 sm:scale-125 transition-transform duration-300" onclick="event.stopPropagation()">
+            <div id="detail-card-container"></div>
+        </div>
+        <button onclick="closeCardDetailModal()" class="mt-8 bg-white/20 hover:bg-white/30 text-white font-black px-6 py-2 rounded-full border border-white/40 text-sm shadow-xl backdrop-blur-md">
+            とじる
+        </button>
+    </div>
+
+    <!-- 全プリントコンプリート モーダル -->
+    <div id="all-clear-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl border-4 border-pink-400 pop-in">
+            <div class="text-7xl mb-4 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-black text-pink-900 mb-2">ぜんぶ くりあ！</h2>
+            <p class="text-slate-600 font-bold mb-6">84もんの たしざんを ぜんぶ くりあしたよ！すばらしい！</p>
+            <button onclick="restartAll()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-extrabold text-xl py-4 rounded-2xl shadow-lg border-b-4 border-pink-700 transition">
+                もういちど さいしょから ちょうせんする 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- Canvas (紙吹雪用) -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+    <script>
+        // ==========================================
+        // 84問統合データモデル (すべてひらがな表記)
+        // ==========================================
+        const PRINT_CONFIG = [
+            { id: 1, name: "プリント１", subtitle: "(くりあがりなし・1かい)", count: 20, rows: 5 },
+            { id: 2, name: "プリント２", subtitle: "(くりあがり2かい)", count: 20, rows: 5 },
+            { id: 3, name: "プリント３", subtitle: "(くりあがり3かい)", count: 20, rows: 5 },
+            { id: 4, name: "プリント４", subtitle: "(4けた)", count: 12, rows: 3 },
+            { id: 5, name: "プリント５", subtitle: "(4けた・いろいろなかたち)", count: 12, rows: 3 }
+        ];
+
+        const ALL_QUESTIONS = [
+            // プリント１ (20問)
+            { pIdx: 0, pQNum: 1, n1: 213, n2: 345 }, { pIdx: 0, pQNum: 2, n1: 412, n2: 175 }, { pIdx: 0, pQNum: 3, n1: 216, n2: 672 }, { pIdx: 0, pQNum: 4, n1: 604, n2: 295 },
+            { pIdx: 0, pQNum: 5, n1: 437, n2: 251 }, { pIdx: 0, pQNum: 6, n1: 833, n2: 166 }, { pIdx: 0, pQNum: 7, n1: 106, n2: 370 }, { pIdx: 0, pQNum: 8, n1: 461, n2: 227 },
+            { pIdx: 0, pQNum: 9, n1: 770, n2: 109 }, { pIdx: 0, pQNum: 10, n1: 425, n2: 244 }, { pIdx: 0, pQNum: 11, n1: 581, n2: 298 }, { pIdx: 0, pQNum: 12, n1: 797, n2: 162 },
+            { pIdx: 0, pQNum: 13, n1: 239, n2: 547 }, { pIdx: 0, pQNum: 14, n1: 165, n2: 763 }, { pIdx: 0, pQNum: 15, n1: 345, n2: 407 }, { pIdx: 0, pQNum: 16, n1: 790, n2: 149 },
+            { pIdx: 0, pQNum: 17, n1: 802, n2: 138 }, { pIdx: 0, pQNum: 18, n1: 437, n2: 258 }, { pIdx: 0, pQNum: 19, n1: 649, n2: 180 }, { pIdx: 0, pQNum: 20, n1: 648, n2: 237 },
+
+            // プリント２ (20問)
+            { pIdx: 1, pQNum: 1, n1: 477, n2: 436 }, { pIdx: 1, pQNum: 2, n1: 264, n2: 378 }, { pIdx: 1, pQNum: 3, n1: 298, n2: 504 }, { pIdx: 1, pQNum: 4, n1: 367, n2: 479 },
+            { pIdx: 1, pQNum: 5, n1: 572, n2: 359 }, { pIdx: 1, pQNum: 6, n1: 793, n2: 157 }, { pIdx: 1, pQNum: 7, n1: 496, n2: 218 }, { pIdx: 1, pQNum: 8, n1: 688, n2: 195 },
+            { pIdx: 1, pQNum: 9, n1: 495, n2: 116 }, { pIdx: 1, pQNum: 10, n1: 478, n2: 267 }, { pIdx: 1, pQNum: 11, n1: 457, n2: 386 }, { pIdx: 1, pQNum: 12, n1: 596, n2: 148 },
+            { pIdx: 1, pQNum: 13, n1: 247, n2: 476 }, { pIdx: 1, pQNum: 14, n1: 748, n2: 186 }, { pIdx: 1, pQNum: 15, n1: 219, n2: 196 }, { pIdx: 1, pQNum: 16, n1: 536, n2: 295 },
+            { pIdx: 1, pQNum: 17, n1: 496, n2: 408 }, { pIdx: 1, pQNum: 18, n1: 415, n2: 395 }, { pIdx: 1, pQNum: 19, n1: 386, n2: 598 }, { pIdx: 1, pQNum: 20, n1: 214, n2: 696 },
+
+            // プリント３ (20問)
+            { pIdx: 2, pQNum: 1, n1: 693, n2: 317 }, { pIdx: 2, pQNum: 2, n1: 994, n2: 678 }, { pIdx: 2, pQNum: 3, n1: 528, n2: 693 }, { pIdx: 2, pQNum: 4, n1: 238, n2: 765 },
+            { pIdx: 2, pQNum: 5, n1: 756, n2: 376 }, { pIdx: 2, pQNum: 6, n1: 783, n2: 618 }, { pIdx: 2, pQNum: 7, n1: 414, n2: 797 }, { pIdx: 2, pQNum: 8, n1: 379, n2: 968 },
+            { pIdx: 2, pQNum: 9, n1: 677, n2: 435 }, { pIdx: 2, pQNum: 10, n1: 565, n2: 886 }, { pIdx: 2, pQNum: 11, n1: 408, n2: 597 }, { pIdx: 2, pQNum: 12, n1: 929, n2: 281 },
+            { pIdx: 2, pQNum: 13, n1: 169, n2: 892 }, { pIdx: 2, pQNum: 14, n1: 836, n2: 584 }, { pIdx: 2, pQNum: 15, n1: 987, n2: 765 }, { pIdx: 2, pQNum: 16, n1: 897, n2: 608 },
+            { pIdx: 2, pQNum: 17, n1: 201, n2: 999 }, { pIdx: 2, pQNum: 18, n1: 256, n2: 985 }, { pIdx: 2, pQNum: 19, n1: 457, n2: 954 }, { pIdx: 2, pQNum: 20, n1: 149, n2: 867 },
+
+            // プリント４ (12問)
+            { pIdx: 3, pQNum: 1, n1: 1009, n2: 5990 }, { pIdx: 3, pQNum: 2, n1: 2714, n2: 3172 }, { pIdx: 3, pQNum: 3, n1: 3862, n2: 4035 },
+            { pIdx: 3, pQNum: 4, n1: 2582, n2: 5183 }, { pIdx: 3, pQNum: 5, n1: 2921, n2: 6767 }, { pIdx: 3, pQNum: 6, n1: 6388, n2: 1604 },
+            { pIdx: 3, pQNum: 7, n1: 4403, n2: 1977 }, { pIdx: 3, pQNum: 8, n1: 3931, n2: 2897 }, { pIdx: 3, pQNum: 9, n1: 3689, n2: 5146 },
+            { pIdx: 3, pQNum: 10, n1: 1647, n2: 2360 }, { pIdx: 3, pQNum: 11, n1: 2154, n2: 4862 }, { pIdx: 3, pQNum: 12, n1: 1067, n2: 7836 },
+
+            // プリント５ (12問)
+            { pIdx: 4, pQNum: 1, n1: 1655, n2: 4779 }, { pIdx: 4, pQNum: 2, n1: 2687, n2: 3574 }, { pIdx: 4, pQNum: 3, n1: 2383, n2: 5957 },
+            { pIdx: 4, pQNum: 4, n1: 3671, n2: 3859 }, { pIdx: 4, pQNum: 5, n1: 3776, n2: 2837 }, { pIdx: 4, pQNum: 6, n1: 2384, n2: 6926 },
+            { pIdx: 4, pQNum: 7, n1: 4327, n2: 2674 }, { pIdx: 4, pQNum: 8, n1: 1176, n2: 6824 }, { pIdx: 4, pQNum: 9, n1: 5356, n2: 2948 },
+            { pIdx: 4, pQNum: 10, n1: 4589, n2: 8271 }, { pIdx: 4, pQNum: 11, n1: 6270, n2: 5134 }, { pIdx: 4, pQNum: 12, n1: 7386, n2: 2616 }
+        ];
+
+        const TOTAL_QUESTIONS = ALL_QUESTIONS.length; // 84
+
+        // ==========================================
+        // 全84種類のポケモンカードデータ (くくポケ60種 + 新規24種)
+        // ==========================================
+        const RARITY_ORDER = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'UR', 'MUR'];
+
+        const POKEMON_CARDS = [
+            // C (10枚)
+            { id: 'p1', name: 'キャタピー', hp: 50, type: '草', typeBg: 'bg-lime-500 text-slate-900', rarity: 'C', attack: 'いとをはく', damage: '10', cost: '🍃', theme: 'grass', bgTone: 'from-emerald-950 via-lime-950 to-slate-950', accentColor: '#84cc16', scale: 0.8 },
+            { id: 'p2', name: 'コラッタ', hp: 40, type: '無', typeBg: 'bg-amber-300 text-slate-900', rarity: 'C', attack: 'かみつく', damage: '20', cost: '⚪', theme: 'normal', bgTone: 'from-amber-950 via-amber-900 to-slate-950', accentColor: '#d97706', scale: 0.8 },
+            { id: 'p3', name: 'ポッポ', hp: 50, type: '無', typeBg: 'bg-amber-300 text-slate-900', rarity: 'C', attack: 'かぜおこし', damage: '20', cost: '⚪', theme: 'normal', bgTone: 'from-amber-950 via-slate-900 to-slate-950', accentColor: '#f59e0b', scale: 0.85 },
+            { id: 'p4', name: 'ニャース', hp: 60, type: '無', typeBg: 'bg-yellow-300 text-slate-900', rarity: 'C', attack: 'ねこにこばん', damage: '20', cost: '⚪', theme: 'normal', bgTone: 'from-yellow-950 via-amber-900 to-slate-950', accentColor: '#f59e0b', scale: 0.9 },
+            { id: 'p5', name: 'コダック', hp: 70, type: '水', typeBg: 'bg-sky-400 text-slate-900', rarity: 'C', attack: 'みずでっぽう', damage: '20', cost: '💧', theme: 'water', bgTone: 'from-blue-950 via-sky-950 to-slate-950', accentColor: '#38bdf8', scale: 0.9 },
+            { id: 'p6', name: 'ピチュー', hp: 50, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'C', attack: 'パチパチ', damage: '20', cost: '⚡', theme: 'lightning', bgTone: 'from-amber-950 via-yellow-900 to-slate-950', accentColor: '#eab308', scale: 0.8 },
+            { id: 'p7', name: 'パモ', hp: 60, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'C', attack: 'でんきショック', damage: '30', cost: '⚡', theme: 'lightning', bgTone: 'from-orange-950 via-amber-900 to-slate-950', accentColor: '#f97316', scale: 0.85 },
+            { id: 'p8', name: 'モクロー', hp: 60, type: '草', typeBg: 'bg-lime-500 text-slate-900', rarity: 'C', attack: 'つつく', damage: '20', cost: '🍃', theme: 'grass', bgTone: 'from-emerald-950 via-lime-950 to-slate-950', accentColor: '#84cc16', scale: 0.85 },
+            { id: 'p9', name: 'イーブイ', hp: 70, type: '無', typeBg: 'bg-amber-300 text-slate-900', rarity: 'C', attack: 'たいあたり', damage: '20', cost: '⚪', theme: 'normal', bgTone: 'from-amber-950 via-amber-900 to-slate-950', accentColor: '#d97706', scale: 0.9 },
+            { id: 'p10', name: 'トゲピー', hp: 50, type: '超', typeBg: 'bg-pink-400 text-white', rarity: 'C', attack: 'ゆびをふる', damage: '30', cost: '🔮', theme: 'psychic', bgTone: 'from-pink-950 via-rose-950 to-slate-950', accentColor: '#f43f5e', scale: 0.8 },
+
+            // U (10枚)
+            { id: 'p11', name: 'ピカチュウ', hp: 70, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'U', attack: 'エレキボール', damage: '40', cost: '⚡⚪', theme: 'lightning', bgTone: 'from-yellow-950 via-amber-900 to-slate-950', accentColor: '#facc15', scale: 0.95 },
+            { id: 'p12', name: 'フシギダネ', hp: 70, type: '草', typeBg: 'bg-emerald-500 text-white', rarity: 'U', attack: 'つるのムチ', damage: '30', cost: '🍃', theme: 'grass', bgTone: 'from-emerald-950 via-teal-950 to-slate-950', accentColor: '#059669', scale: 0.9 },
+            { id: 'p13', name: 'ヒトカゲ', hp: 70, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'U', attack: 'ひのこ', damage: '30', cost: '🔥', theme: 'fire', bgTone: 'from-red-950 via-rose-900 to-slate-950', accentColor: '#ea580c', scale: 0.9 },
+            { id: 'p14', name: 'ゼニガメ', hp: 70, type: '水', typeBg: 'bg-blue-500 text-white', rarity: 'U', attack: 'みずでっぽう', damage: '30', cost: '💧', theme: 'water', bgTone: 'from-blue-950 via-indigo-950 to-slate-950', accentColor: '#2563eb', scale: 0.9 },
+            { id: 'p15', name: 'ポッチャマ', hp: 70, type: '水', typeBg: 'bg-sky-400 text-slate-900', rarity: 'U', attack: 'バブルこうせん', damage: '40', cost: '💧', theme: 'water', bgTone: 'from-cyan-950 via-sky-900 to-slate-950', accentColor: '#0284c7', scale: 0.9 },
+            { id: 'p16', name: 'シャワーズ', hp: 110, type: '水', typeBg: 'bg-sky-400 text-slate-900', rarity: 'U', attack: 'みずのしたどう', damage: '60', cost: '💧⚪', theme: 'water', bgTone: 'from-teal-950 via-blue-950 to-slate-950', accentColor: '#06b6d4', scale: 1.0 },
+            { id: 'p17', name: 'サンダース', hp: 110, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'U', attack: 'ピンミサイル', damage: '60', cost: '⚡⚪', theme: 'lightning', bgTone: 'from-amber-950 via-yellow-900 to-slate-950', accentColor: '#eab308', scale: 1.0 },
+            { id: 'p18', name: 'ブースター', hp: 120, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'U', attack: 'かえんほうしゃ', damage: '70', cost: '🔥🔥', theme: 'fire', bgTone: 'from-red-950 via-orange-950 to-slate-950', accentColor: '#ea580c', scale: 1.0 },
+            { id: 'p19', name: 'プリン', hp: 60, type: '無', typeBg: 'bg-pink-300 text-slate-900', rarity: 'U', attack: 'うたう', damage: '20', cost: '⚪', theme: 'normal', bgTone: 'from-pink-950 via-rose-950 to-slate-950', accentColor: '#f43f5e', scale: 0.9 },
+            { id: 'p20', name: 'ケーシィ', hp: 60, type: '超', typeBg: 'bg-purple-500 text-white', rarity: 'U', attack: 'テレポート', damage: '20', cost: '🔮', theme: 'psychic', bgTone: 'from-purple-950 via-indigo-950 to-slate-950', accentColor: '#a855f7', scale: 0.85 },
+
+            // R (10枚)
+            { id: 'p21', name: 'ライチュウ', hp: 120, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'R', attack: '10まんボルト', damage: '90', cost: '⚡⚡⚪', theme: 'lightning', bgTone: 'from-yellow-950 via-amber-900 to-slate-950', accentColor: '#facc15', scale: 1.0 },
+            { id: 'p22', name: 'ピッピ', hp: 60, type: '超', typeBg: 'bg-pink-300 text-slate-900', rarity: 'R', attack: 'ムーンフォース', damage: '50', cost: '🔮⚪', theme: 'psychic', bgTone: 'from-pink-950 via-fuchsia-950 to-slate-950', accentColor: '#ec4899', scale: 0.9 },
+            { id: 'p23', name: 'メノクラゲ', hp: 80, type: '水', typeBg: 'bg-blue-600 text-white', rarity: 'R', attack: 'どくばり', damage: '40', cost: '💧', theme: 'water', bgTone: 'from-cyan-950 via-blue-950 to-slate-950', accentColor: '#0284c7', scale: 0.9 },
+            { id: 'p24', name: 'ギャラドス', hp: 180, type: '水', typeBg: 'bg-blue-600 text-white', rarity: 'R', attack: 'ハイパーボイス', damage: '120', cost: '💧💧⚪⚪', theme: 'water', bgTone: 'from-blue-950 via-indigo-950 to-slate-950', accentColor: '#1d4ed8', scale: 1.2 },
+            { id: 'p25', name: 'ラプラス', hp: 130, type: '水', typeBg: 'bg-sky-500 text-white', rarity: 'R', attack: 'なみのり', damage: '90', cost: '💧💧⚪', theme: 'water', bgTone: 'from-sky-950 via-cyan-950 to-slate-950', accentColor: '#0284c7', scale: 1.1 },
+            { id: 'p26', name: 'ロコン', hp: 60, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'R', attack: 'きつねび', damage: '30', cost: '🔥', theme: 'fire', bgTone: 'from-orange-950 via-red-950 to-slate-950', accentColor: '#f97316', scale: 0.85 },
+            { id: 'p27', name: 'ガーディ', hp: 80, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'R', attack: 'かみつくだく', damage: '50', cost: '🔥⚪', theme: 'fire', bgTone: 'from-amber-950 via-orange-950 to-slate-950', accentColor: '#ea580c', scale: 0.95 },
+            { id: 'p28', name: 'パルシェン', hp: 130, type: '水', typeBg: 'bg-indigo-600 text-white', rarity: 'R', attack: 'つららばり', damage: '80', cost: '💧💧', theme: 'water', bgTone: 'from-slate-950 via-indigo-950 to-slate-950', accentColor: '#4f46e5', scale: 1.05 },
+            { id: 'p29', name: 'ストライク', hp: 90, type: '草', typeBg: 'bg-emerald-500 text-white', rarity: 'R', attack: 'れんぞくぎり', damage: '60', cost: '🍃⚪', theme: 'grass', bgTone: 'from-emerald-950 via-lime-950 to-slate-950', accentColor: '#10b981', scale: 1.0 },
+            { id: 'p30', name: 'エレブー', hp: 90, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'R', attack: 'かみなりパンチ', damage: '70', cost: '⚡⚡', theme: 'lightning', bgTone: 'from-yellow-950 via-amber-900 to-slate-950', accentColor: '#eab308', scale: 1.0 },
+
+            // RR (10枚)
+            { id: 'p31', name: 'ピカチュウ ex', hp: 200, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'RR', attack: '10万ボルト', damage: '120', cost: '⚡⚡', theme: 'lightning', bgTone: 'from-yellow-950 via-amber-900 to-slate-950', accentColor: '#facc15', scale: 1.05 },
+            { id: 'p32', name: 'リザードン ex', hp: 330, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'RR', attack: 'れんごくしはい', damage: '180', cost: '🔥🔥', theme: 'fire', bgTone: 'from-red-950 via-rose-900 to-slate-950', accentColor: '#ea580c', scale: 1.15 },
+            { id: 'p33', name: 'カメックス ex', hp: 330, type: '水', typeBg: 'bg-blue-500 text-white', rarity: 'RR', attack: 'ハイドロボム', damage: '160', cost: '💧💧', theme: 'water', bgTone: 'from-blue-950 via-indigo-950 to-slate-950', accentColor: '#2563eb', scale: 1.15 },
+            { id: 'p34', name: 'フシギバナ ex', hp: 340, type: '草', typeBg: 'bg-emerald-500 text-white', rarity: 'RR', attack: 'ジャイアントブルーム', damage: '150', cost: '🍃🍃', theme: 'grass', bgTone: 'from-emerald-950 via-teal-950 to-slate-950', accentColor: '#059669', scale: 1.15 },
+            { id: 'p35', name: 'ミュウツー ex', hp: 310, type: '超', typeBg: 'bg-purple-600 text-white', rarity: 'RR', attack: 'サイコドライブ', damage: '220', cost: '🔮🔮', theme: 'psychic', bgTone: 'from-purple-950 via-fuchsia-950 to-slate-950', accentColor: '#9333ea', scale: 1.1 },
+            { id: 'p36', name: 'ゲッコウガ ex', hp: 300, type: '水', typeBg: 'bg-blue-600 text-white', rarity: 'RR', attack: 'しのびの手裏剣', damage: '170', cost: '💧⚪', theme: 'water', bgTone: 'from-indigo-950 via-blue-950 to-slate-950', accentColor: '#2563eb', scale: 1.1 },
+            { id: 'p37', name: 'ルカリオ ex', hp: 280, type: '闘', typeBg: 'bg-amber-700 text-white', rarity: 'RR', attack: '波動ブラスト', damage: '160', cost: '🥊🥊', theme: 'fight', bgTone: 'from-cyan-950 via-slate-900 to-slate-950', accentColor: '#0284c7', scale: 1.05 },
+            { id: 'p38', name: 'サーナイト ex', hp: 310, type: '超', typeBg: 'bg-pink-500 text-white', rarity: 'RR', attack: 'サイコエンブレイス', damage: '190', cost: '🔮🔮', theme: 'psychic', bgTone: 'from-fuchsia-950 via-pink-950 to-slate-950', accentColor: '#ec4899', scale: 1.05 },
+            { id: 'p39', name: 'ゲンガー ex', hp: 300, type: '超', typeBg: 'bg-indigo-900 text-white', rarity: 'RR', attack: 'ナイトゲイズ', damage: '180', cost: '🔮🔮', theme: 'psychic', bgTone: 'from-purple-950 via-indigo-950 to-slate-950', accentColor: '#7e22ce', scale: 1.1 },
+            { id: 'p40', name: 'カイリュー ex', hp: 330, type: 'ドラゴン', typeBg: 'bg-amber-600 text-white', rarity: 'RR', attack: '流星群ブレイク', damage: '230', cost: '🔥💧⚪', theme: 'dragon', bgTone: 'from-amber-950 via-orange-950 to-slate-950', accentColor: '#f59e0b', scale: 1.2 },
+
+            // AR (6枚)
+            { id: 'p41', name: 'カビゴン AR', hp: 150, type: '無', typeBg: 'bg-teal-800 text-white', rarity: 'AR', attack: 'とおせんぼ', damage: '100', cost: '⚪⚪⚪', theme: 'normal', bgTone: 'from-teal-950 via-emerald-950 to-slate-950', accentColor: '#0d9488', scale: 1.25 },
+            { id: 'p42', name: 'ナンジャモのハラバリー AR', hp: 140, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'AR', attack: 'エレキチャージ', damage: '110', cost: '⚡⚡', theme: 'lightning', bgTone: 'from-amber-950 via-yellow-900 to-slate-950', accentColor: '#eab308', scale: 1.2 },
+            { id: 'p43', name: 'ポッチャマ AR', hp: 80, type: '水', typeBg: 'bg-sky-400 text-slate-900', rarity: 'AR', attack: 'みずたまりダイブ', damage: '60', cost: '💧', theme: 'water', bgTone: 'from-cyan-950 via-sky-900 to-slate-950', accentColor: '#0284c7', scale: 1.15 },
+            { id: 'p44', name: 'イーブイ AR', hp: 80, type: '無', typeBg: 'bg-amber-300 text-slate-900', rarity: 'AR', attack: 'フレンズハート', damage: '50', cost: '⚪', theme: 'normal', bgTone: 'from-amber-950 via-rose-950 to-slate-950', accentColor: '#d97706', scale: 1.15 },
+            { id: 'p45', name: 'デデンネ AR', hp: 70, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'AR', attack: 'ほっぺすりすり', damage: '40', cost: '⚡', theme: 'lightning', bgTone: 'from-amber-950 via-yellow-950 to-slate-950', accentColor: '#fbbf24', scale: 1.1 },
+            { id: 'p46', name: 'モクロー AR', hp: 70, type: '草', typeBg: 'bg-lime-500 text-slate-900', rarity: 'AR', attack: 'このはストーム', damage: '50', cost: '🍃', theme: 'grass', bgTone: 'from-emerald-950 via-teal-950 to-slate-950', accentColor: '#84cc16', scale: 1.1 },
+
+            // SR (6枚)
+            { id: 'p47', name: 'レックウザ ex SR', hp: 230, type: 'ドラゴン', typeBg: 'bg-teal-700 text-white', rarity: 'SR', attack: 'ドラゴンバースト', damage: '210', cost: '⚡🔥', theme: 'dragon', bgTone: 'from-teal-950 via-emerald-950 to-slate-950', accentColor: '#0d9488', scale: 1.25 },
+            { id: 'p48', name: 'ミュウ ex SR', hp: 180, type: '超', typeBg: 'bg-pink-400 text-white', rarity: 'SR', attack: 'ゲノムハック', damage: '150', cost: '⚪⚪⚪', theme: 'psychic', bgTone: 'from-pink-950 via-rose-950 to-slate-950', accentColor: '#f43f5e', scale: 1.1 },
+            { id: 'p49', name: 'フリーザー ex SR', hp: 220, type: '水', typeBg: 'bg-sky-400 text-slate-900', rarity: 'SR', attack: 'アイスフザード', damage: '170', cost: '💧💧', theme: 'water', bgTone: 'from-sky-950 via-cyan-950 to-slate-950', accentColor: '#38bdf8', scale: 1.2 },
+            { id: 'p50', name: 'サンダー ex SR', hp: 220, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'SR', attack: 'ライトニングボルト', damage: '180', cost: '⚡⚡', theme: 'lightning', bgTone: 'from-yellow-950 via-amber-950 to-slate-950', accentColor: '#eab308', scale: 1.2 },
+            { id: 'p51', name: 'ファイヤー ex SR', hp: 220, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'SR', attack: 'バーニングウィング', damage: '180', cost: '🔥🔥', theme: 'fire', bgTone: 'from-red-950 via-orange-950 to-slate-950', accentColor: '#f97316', scale: 1.2 },
+            { id: 'p52', name: 'ハッサム ex SR', hp: 270, type: '鋼', typeBg: 'bg-slate-600 text-white', rarity: 'SR', attack: 'レッドスライサー', damage: '200', cost: '⚪⚪⚪', theme: 'normal', bgTone: 'from-rose-950 via-red-950 to-slate-950', accentColor: '#dc2626', scale: 1.2 },
+
+            // SAR (4枚)
+            { id: 'p53', name: 'アルセウス ex SAR', hp: 300, type: '無', typeBg: 'bg-amber-200 text-slate-900', rarity: 'SAR', attack: '神話の輝き', damage: '250', cost: '⚪⚪⚪', theme: 'legend', bgTone: 'from-amber-950 via-yellow-900 to-slate-950', accentColor: '#fde047', scale: 1.3 },
+            { id: 'p54', name: 'ミライドン ex SAR', hp: 230, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'SAR', attack: 'サイバーボルト', damage: '240', cost: '⚡⚡', theme: 'lightning', bgTone: 'from-violet-950 via-purple-950 to-slate-950', accentColor: '#a855f7', scale: 1.25 },
+            { id: 'p55', name: 'コライドン ex SAR', hp: 230, type: '闘', typeBg: 'bg-red-700 text-white', rarity: 'SAR', attack: 'プライマルインパクト', damage: '240', cost: '🥊🥊', theme: 'fight', bgTone: 'from-rose-950 via-red-950 to-slate-950', accentColor: '#e11d48', scale: 1.25 },
+            { id: 'p56', name: 'ギラティナ ex SAR', hp: 280, type: 'ドラゴン', typeBg: 'bg-purple-900 text-white', rarity: 'SAR', attack: '次元崩壊インパクト', damage: '280', cost: '🔮🍃', theme: 'legend', bgTone: 'from-slate-950 via-purple-950 to-slate-950', accentColor: '#7e22ce', scale: 1.3 },
+
+            // UR (2枚)
+            { id: 'p57', name: 'ルギア ex UR', hp: 280, type: '無', typeBg: 'bg-slate-200 text-slate-900', rarity: 'UR', attack: '黄金のエアロブラスト', damage: '260', cost: '⚪⚪⚪⚪', theme: 'legend', bgTone: 'from-amber-950 via-yellow-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p58', name: 'カイオーガ ex UR', hp: 280, type: '水', typeBg: 'bg-blue-600 text-white', rarity: 'UR', attack: '黄金の大海津波', damage: '260', cost: '💧💧💧', theme: 'water', bgTone: 'from-amber-950 via-blue-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+
+            // MUR (2枚)
+            { id: 'p59', name: 'ピカチュウ MUR', hp: 350, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'MUR', attack: 'メガ・ギガ100万ボルト', damage: '300', cost: '⚡⚡⚡', theme: 'lightning', bgTone: 'from-yellow-950 via-amber-900 to-slate-950', accentColor: '#facc15', scale: 1.35 },
+            { id: 'p60', name: 'アルセウス MUR', hp: 380, type: '無', typeBg: 'bg-amber-200 text-slate-900', rarity: 'MUR', attack: '全知全能創世光芒', damage: '320', cost: '⚪⚪⚪⚪', theme: 'legend', bgTone: 'from-amber-950 via-yellow-900 to-slate-950', accentColor: '#fde047', scale: 1.35 },
+
+            // --- 新規追加24種 (p61〜p84) ---
+            { id: 'p61', name: 'ウパー AR', hp: 70, type: '水', typeBg: 'bg-sky-400 text-slate-900', rarity: 'AR', attack: 'どろんこジャンプ', damage: '40', cost: '💧', theme: 'water', bgTone: 'from-cyan-950 via-blue-950 to-slate-950', accentColor: '#38bdf8', scale: 1.15 },
+            { id: 'p62', name: 'リオル AR', hp: 70, type: '闘', typeBg: 'bg-amber-700 text-white', rarity: 'AR', attack: 'はどうだん', damage: '50', cost: '🥊', theme: 'fight', bgTone: 'from-blue-950 via-slate-900 to-slate-950', accentColor: '#3b82f6', scale: 1.15 },
+            { id: 'p63', name: 'チコリータ AR', hp: 70, type: '草', typeBg: 'bg-lime-500 text-slate-900', rarity: 'AR', attack: 'はっぱスライサー', damage: '40', cost: '🍃', theme: 'grass', bgTone: 'from-emerald-950 via-lime-950 to-slate-950', accentColor: '#84cc16', scale: 1.1 },
+            { id: 'p64', name: 'ヒノアラシ AR', hp: 70, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'AR', attack: 'スピードスター', damage: '50', cost: '🔥', theme: 'fire', bgTone: 'from-red-950 via-orange-950 to-slate-950', accentColor: '#f97316', scale: 1.1 },
+
+            { id: 'p65', name: 'ディアルガ ex SR', hp: 230, type: '鋼', typeBg: 'bg-slate-500 text-white', rarity: 'SR', attack: 'メタルブラスト', damage: '210', cost: '⚪⚪⚪', theme: 'dragon', bgTone: 'from-slate-950 via-blue-950 to-slate-950', accentColor: '#64748b', scale: 1.25 },
+            { id: 'p66', name: 'パルキア ex SR', hp: 230, type: '水', typeBg: 'bg-purple-600 text-white', rarity: 'SR', attack: 'プレッシャーウェーブ', damage: '210', cost: '💧💧', theme: 'water', bgTone: 'from-purple-950 via-pink-950 to-slate-950', accentColor: '#a855f7', scale: 1.25 },
+            { id: 'p67', name: 'ゾロアーク ex SR', hp: 210, type: '悪', typeBg: 'bg-rose-900 text-white', rarity: 'SR', attack: 'ナイトバースト', damage: '190', cost: '🔮⚪', theme: 'psychic', bgTone: 'from-rose-950 via-red-950 to-slate-950', accentColor: '#e11d48', scale: 1.2 },
+            { id: 'p68', name: 'ホウオウ ex SR', hp: 230, type: '炎', typeBg: 'bg-amber-500 text-white', rarity: 'SR', attack: 'セイクリッドファイア', damage: '220', cost: '🔥🔥', theme: 'fire', bgTone: 'from-amber-950 via-red-950 to-slate-950', accentColor: '#f59e0b', scale: 1.25 },
+
+            { id: 'p69', name: 'リザードン ex SAR', hp: 330, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'SAR', attack: '爆炎れんごくストライク', damage: '280', cost: '🔥🔥🔥', theme: 'fire', bgTone: 'from-red-950 via-orange-900 to-slate-950', accentColor: '#ea580c', scale: 1.3 },
+            { id: 'p70', name: 'ミュウツー ex SAR', hp: 310, type: '超', typeBg: 'bg-purple-600 text-white', rarity: 'SAR', attack: 'サイコブレイク', damage: '270', cost: '🔮🔮🔮', theme: 'psychic', bgTone: 'from-purple-950 via-fuchsia-950 to-slate-950', accentColor: '#9333ea', scale: 1.3 },
+            { id: 'p71', name: 'ゲッコウガ ex SAR', hp: 300, type: '水', typeBg: 'bg-blue-600 text-white', rarity: 'SAR', attack: '影分身手裏剣', damage: '260', cost: '💧💧⚪', theme: 'water', bgTone: 'from-indigo-950 via-blue-950 to-slate-950', accentColor: '#2563eb', scale: 1.3 },
+            { id: 'p72', name: 'ルカリオ ex SAR', hp: 280, type: '闘', typeBg: 'bg-amber-700 text-white', rarity: 'SAR', attack: '極限波動拳', damage: '250', cost: '🥊🥊🥊', theme: 'fight', bgTone: 'from-cyan-950 via-slate-900 to-slate-950', accentColor: '#0284c7', scale: 1.3 },
+            { id: 'p73', name: 'イーブイ ex SAR', hp: 260, type: '無', typeBg: 'bg-amber-300 text-slate-900', rarity: 'SAR', attack: 'エボリューションバースト', damage: '240', cost: '⚪⚪⚪', theme: 'normal', bgTone: 'from-amber-950 via-rose-950 to-slate-950', accentColor: '#d97706', scale: 1.25 },
+            { id: 'p74', name: 'カメックス ex SAR', hp: 330, type: '水', typeBg: 'bg-blue-500 text-white', rarity: 'SAR', attack: 'ハイドロキャノンMAX', damage: '270', cost: '💧💧💧', theme: 'water', bgTone: 'from-blue-950 via-indigo-950 to-slate-950', accentColor: '#2563eb', scale: 1.3 },
+
+            { id: 'p75', name: 'グラードン ex UR', hp: 290, type: '闘', typeBg: 'bg-red-700 text-white', rarity: 'UR', attack: '黄金のグランブルダスト', damage: '270', cost: '🥊🥊🥊', theme: 'fight', bgTone: 'from-amber-950 via-rose-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p76', name: 'レックウザ ex UR', hp: 290, type: 'ドラゴン', typeBg: 'bg-teal-700 text-white', rarity: 'UR', attack: '黄金のガリョウテンセイ', damage: '280', cost: '⚡🔥⚪', theme: 'dragon', bgTone: 'from-amber-950 via-emerald-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p77', name: 'ディアルガ ex UR', hp: 290, type: '鋼', typeBg: 'bg-slate-400 text-slate-900', rarity: 'UR', attack: '黄金のロア・オブ・タイム', damage: '280', cost: '⚪⚪⚪⚪', theme: 'legend', bgTone: 'from-amber-950 via-slate-900 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p78', name: 'パルキア ex UR', hp: 290, type: '水', typeBg: 'bg-purple-500 text-white', rarity: 'UR', attack: '黄金のあくうせつだん', damage: '280', cost: '💧💧💧', theme: 'water', bgTone: 'from-amber-950 via-purple-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p79', name: 'ギラティナ ex UR', hp: 290, type: 'ドラゴン', typeBg: 'bg-purple-900 text-white', rarity: 'UR', attack: '黄金のシャドーダイブ', damage: '280', cost: '🔮🍃⚪', theme: 'legend', bgTone: 'from-amber-950 via-purple-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p80', name: 'ミライドン ex UR', hp: 280, type: '雷', typeBg: 'bg-yellow-400 text-slate-900', rarity: 'UR', attack: '黄金のエレクトロドライブ', damage: '270', cost: '⚡⚡⚡', theme: 'lightning', bgTone: 'from-amber-950 via-violet-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p81', name: 'コライドン ex UR', hp: 280, type: '闘', typeBg: 'bg-red-700 text-white', rarity: 'UR', attack: '黄金のアクセルブレイク', damage: '270', cost: '🥊🥊🥊', theme: 'fight', bgTone: 'from-amber-950 via-red-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+            { id: 'p82', name: 'ホウオウ ex UR', hp: 280, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'UR', attack: '黄金のせいなるほのお', damage: '270', cost: '🔥🔥🔥', theme: 'fire', bgTone: 'from-amber-950 via-orange-950 to-slate-950', accentColor: '#eab308', scale: 1.3 },
+
+            { id: 'p83', name: 'リザードン MUR', hp: 390, type: '炎', typeBg: 'bg-orange-500 text-white', rarity: 'MUR', attack: '究極爆炎ギガフレア', damage: '330', cost: '🔥🔥🔥🔥', theme: 'fire', bgTone: 'from-yellow-950 via-red-900 to-slate-950', accentColor: '#ea580c', scale: 1.35 },
+            { id: 'p84', name: 'レックウザ MUR', hp: 400, type: 'ドラゴン', typeBg: 'bg-teal-700 text-white', rarity: 'MUR', attack: '創世ドラゴンブレイカー', damage: '350', cost: '⚡⚡🔥🔥', theme: 'dragon', bgTone: 'from-yellow-950 via-emerald-950 to-slate-950', accentColor: '#0d9488', scale: 1.35 }
+        ];
+
+        // 状態管理：カード初期状態は未獲得
+        let clearedFlags = new Array(TOTAL_QUESTIONS).fill(false);
+        let ownedCards = [];
+        let currentGlobalQIdx = 0;
+        let enteredDigits = [];
+        let isSoundEnabled = true;
+        let isProcessingAnswer = false;
+        let currentAlbumFilter = 'ALL';
+
+        // Firebase & Cloud Save
+        let db = null;
+        let auth = null;
+        let userId = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hissan-addition-app';
+
+        async function initFirebase() {
+            if (!window.firebaseModules) return;
+            try {
+                const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore } = window.firebaseModules;
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                if (!firebaseConfig) return;
+
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                const initialToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (initialToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialToken);
+                    } catch (e) {
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                userId = auth.currentUser?.uid || 'guest-user';
+                await loadSaveData();
+            } catch(e) {
+                console.log("Firebase init skipped or unconfigured.");
+            }
+        }
+
+        async function loadSaveData() {
+            if (!db || !userId) {
+                updateCardBadge();
+                renderMenuCards();
+                return;
+            }
+            try {
+                const { doc, getDoc } = window.firebaseModules;
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'progress', 'data');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if (Array.isArray(data.clearedFlags)) {
+                        clearedFlags = data.clearedFlags;
+                    }
+                    if (Array.isArray(data.ownedCards)) {
+                        ownedCards = data.ownedCards;
+                    }
+                    if (typeof data.currentGlobalQIdx === 'number') {
+                        currentGlobalQIdx = data.currentGlobalQIdx;
+                    }
+                }
+            } catch (err) {
+                console.error("Save load error:", err);
+            }
+            updateCardBadge();
+            renderMenuCards();
+        }
+
+        async function saveProgress() {
+            updateCardBadge();
+            renderMenuCards();
+            if (!db || !userId) return;
+            try {
+                const { doc, setDoc } = window.firebaseModules;
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, 'progress', 'data');
+                await setDoc(docRef, {
+                    clearedFlags: clearedFlags,
+                    ownedCards: ownedCards,
+                    currentGlobalQIdx: currentGlobalQIdx,
+                    updatedAt: new Date().toISOString()
+                });
+            } catch (err) {
+                console.error("Save write error:", err);
+            }
+        }
+
+        function updateCardBadge() {
+            const badge = document.getElementById('menu-card-count-badge');
+            if (badge) {
+                badge.textContent = `${ownedCards.length}/${POKEMON_CARDS.length}`;
+            }
+        }
+
+        // 音声合成
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+        }
+
+        function playSound(type) {
+            if (!isSoundEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+
+            if (type === 'click') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(220, now + 0.04);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.04);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.04);
+            } else if (type === 'correct') {
+                const playSoftNote = (freq, time, duration) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, time);
+                    gain.gain.setValueAtTime(0.2, time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(time);
+                    osc.stop(time + duration);
+                };
+                playSoftNote(261.63, now, 0.25);
+                playSoftNote(329.63, now + 0.12, 0.45);
+            } else if (type === 'card') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'wrong') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(110, now);
+                gain.gain.setValueAtTime(0.06, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } else if (type === 'fanfare') {
+                const notes = [
+                    { f: 261.63, t: 0 }, { f: 329.63, t: 0.12 }, { f: 392.00, t: 0.24 }, { f: 523.25, t: 0.36 },
+                    { f: 392.00, t: 0.52 }, { f: 523.25, t: 0.68 }, { f: 659.25, t: 0.88 }, { f: 783.99, t: 1.08 },
+                    { f: 1046.50, t: 1.35 }
+                ];
+                notes.forEach((note) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(note.f, now + note.t);
+                    gain.gain.setValueAtTime(0.25, now + note.t);
+                    const dur = note.f > 800 ? 1.2 : 0.3;
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + note.t + dur);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + note.t);
+                    osc.stop(now + note.t + dur);
+                });
+            }
+        }
+
+        window.onload = async () => {
+            setupEventListeners();
+            updateCardBadge();
+            renderMenuCards();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            await initFirebase();
+        };
+
+        function setupEventListeners() {
+            const soundBtn = document.getElementById('sound-toggle-btn');
+            if (soundBtn) {
+                soundBtn.addEventListener('click', () => {
+                    isSoundEnabled = !isSoundEnabled;
+                    const soundOn = document.getElementById('sound-on-icon');
+                    const soundOff = document.getElementById('sound-off-icon');
+                    if (soundOn) soundOn.classList.toggle('hidden', !isSoundEnabled);
+                    if (soundOff) soundOff.classList.toggle('hidden', isSoundEnabled);
+                });
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if (!document.getElementById('card-get-modal').classList.contains('hidden')) {
+                    if (e.key === 'Enter' || e.key === 'NumpadEnter' || e.key === ' ') {
+                        e.preventDefault();
+                        closeCardGetModal();
+                    }
+                    return;
+                }
+                if (document.getElementById('game-screen').classList.contains('hidden')) return;
+                if (!document.getElementById('album-screen').classList.contains('hidden')) return;
+                if (isProcessingAnswer) return;
+
+                if (e.key >= '0' && e.key <= '9') {
+                    pressKey(e.key);
+                } else if (e.key === 'Backspace') {
+                    pressKey('backspace');
+                } else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') {
+                    pressKey('clear');
+                } else if (e.key === 'Enter' || e.key === 'NumpadEnter') {
+                    e.preventDefault();
+                    checkAnswer();
+                }
+            });
+        }
+
+        function renderMenuCards() {
+            let qOffset = 0;
+            let nextUncleared = clearedFlags.findIndex(flag => !flag);
+            if (nextUncleared === -1) nextUncleared = TOTAL_QUESTIONS - 1;
+
+            const targetActiveIdx = (currentGlobalQIdx !== undefined && currentGlobalQIdx < TOTAL_QUESTIONS) 
+                ? currentGlobalQIdx 
+                : (nextUncleared !== -1 ? nextUncleared : 0);
+
+            PRINT_CONFIG.forEach((pConfig, pIdx) => {
+                const cardEl = document.getElementById(`print-card-${pIdx}`);
+                if (!cardEl) return;
+                cardEl.innerHTML = '';
+
+                const titleEl = document.createElement('div');
+                titleEl.className = 'font-extrabold text-xs sm:text-sm text-pink-900 text-center mb-1.5 border-b-2 border-pink-200 pb-0.5 shrink-0';
+                titleEl.textContent = pConfig.name;
+                cardEl.appendChild(titleEl);
+
+                const gridEl = document.createElement('div');
+                const rowClass = pConfig.rows === 3 ? 'grid-rows-3' : 'grid-rows-5';
+                gridEl.className = `grid grid-cols-4 ${rowClass} gap-1 sm:gap-1.5 w-full flex-1 h-full min-h-[150px] sm:min-h-[190px]`;
+
+                for (let i = 0; i < pConfig.count; i++) {
+                    const globalIdx = qOffset + i;
+                    const isCleared = clearedFlags[globalIdx];
+                    const isNextTarget = (globalIdx === targetActiveIdx);
+
+                    const box = document.createElement('button');
+                    
+                    let colorClass = 'bg-slate-300 border-slate-400 cursor-not-allowed opacity-90';
+                    let isClickable = false;
+
+                    if (isCleared) {
+                        colorClass = 'bg-red-500 border-red-600 shadow-sm hover:opacity-90 cursor-pointer';
+                        isClickable = true;
+                    } else if (isNextTarget) {
+                        colorClass = 'bg-blue-500 border-blue-600 ring-2 ring-blue-300 shadow-md animate-pulse cursor-pointer';
+                        isClickable = true;
+                    }
+
+                    box.className = `w-full h-full rounded border transition transform ${isClickable ? 'active:scale-95' : ''} ${colorClass}`;
+                    box.title = `${pConfig.name} - ${i + 1}もんめ (${isCleared ? 'くりあした' : isNextTarget ? 'つぎちょうせん' : 'まだあいていないよ'})`;
+                    
+                    if (isClickable) {
+                        box.onclick = () => startFromQuestion(globalIdx);
+                    } else {
+                        box.disabled = true;
+                    }
+                    
+                    gridEl.appendChild(box);
+                }
+                cardEl.appendChild(gridEl);
+                qOffset += pConfig.count;
+            });
+        }
+
+        function startFromContinue() {
+            let nextUncleared = clearedFlags.findIndex(flag => !flag);
+            if (nextUncleared === -1) nextUncleared = 0;
+            startFromQuestion(nextUncleared);
+        }
+
+        function startFromQuestion(globalIdx) {
+            currentGlobalQIdx = globalIdx;
+            enteredDigits = [];
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('flex');
+            renderQuestion();
+        }
+
+        function showMenu() {
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('flex');
+            document.getElementById('menu-screen').classList.remove('hidden');
+            renderMenuCards();
+        }
+
+        function renderQuestion() {
+            const qData = ALL_QUESTIONS[currentGlobalQIdx];
+            const pConfig = PRINT_CONFIG[qData.pIdx];
+            const maxDigits = 5;
+
+            document.getElementById('print-name-badge').textContent = `${pConfig.name} (${qData.pQNum}もんめ)`;
+            document.getElementById('print-subtitle').textContent = pConfig.subtitle;
+            document.getElementById('global-q-num').textContent = currentGlobalQIdx + 1;
+
+            const totalClearedCount = clearedFlags.filter(Boolean).length;
+            document.getElementById('total-correct-count').textContent = totalClearedCount;
+
+            const progressPercent = (totalClearedCount / TOTAL_QUESTIONS) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+            const strNum1 = qData.n1.toString().padStart(maxDigits, ' ');
+            const strNum2 = qData.n2.toString().padStart(maxDigits, ' ');
+
+            const row1El = document.getElementById('row-num1');
+            row1El.innerHTML = '';
+            for (let char of strNum1) {
+                const box = document.createElement('div');
+                box.className = 'hissan-box';
+                box.textContent = char !== ' ' ? char : '';
+                row1El.appendChild(box);
+            }
+
+            const row2El = document.getElementById('row-num2');
+            row2El.innerHTML = '';
+            for (let char of strNum2) {
+                const box = document.createElement('div');
+                box.className = 'hissan-box';
+                box.textContent = char !== ' ' ? char : '';
+                row2El.appendChild(box);
+            }
+
+            renderAnswerRow();
+        }
+
+        function renderAnswerRow() {
+            const rowAnsEl = document.getElementById('row-answer');
+            rowAnsEl.innerHTML = '';
+            const maxDigits = 5;
+
+            for (let placeIndex = maxDigits - 1; placeIndex >= 0; placeIndex--) {
+                const box = document.createElement('div');
+                box.className = 'hissan-box ans-box';
+                
+                const val = enteredDigits[placeIndex];
+                if (val !== undefined) {
+                    box.textContent = val;
+                    box.classList.add('filled');
+                } else {
+                    box.textContent = '';
+                }
+
+                if (placeIndex === enteredDigits.length && enteredDigits.length < maxDigits) {
+                    box.classList.add('next-target');
+                }
+
+                rowAnsEl.appendChild(box);
+            }
+        }
+
+        function pressKey(key) {
+            if (isProcessingAnswer) return;
+            playSound('click');
+
+            if (key === 'clear') {
+                enteredDigits = [];
+            } else if (key === 'backspace') {
+                enteredDigits.pop();
+            } else if (typeof key === 'string' && key >= '0' && key <= '9') {
+                if (enteredDigits.length < 5) {
+                    enteredDigits.push(parseInt(key, 10));
+                }
+            }
+            renderAnswerRow();
+        }
+
+        function getEnteredValue() {
+            if (enteredDigits.length === 0) return null;
+            let val = 0;
+            for (let i = 0; i < enteredDigits.length; i++) {
+                val += enteredDigits[i] * Math.pow(10, i);
+            }
+            return val;
+        }
+
+        const RARITY_WEIGHT_MAP = {
+            'C': 100, 'U': 70, 'R': 45, 'RR': 30, 'AR': 20, 'SR': 12, 'SAR': 6, 'UR': 3, 'MUR': 1
+        };
+
+        function pickWeightedCard(cardList) {
+            if (!cardList || cardList.length === 0) return POKEMON_CARDS[0];
+            let totalWeight = 0;
+            const weights = cardList.map(c => {
+                const w = RARITY_WEIGHT_MAP[c.rarity] || 10;
+                totalWeight += w;
+                return w;
+            });
+            let rand = Math.random() * totalWeight;
+            for (let i = 0; i < cardList.length; i++) {
+                if (rand < weights[i]) return cardList[i];
+                rand -= weights[i];
+            }
+            return cardList[0];
+        }
+
+        function getRewardCardForQuestion(qIdx, isFirstClear) {
+            const qData = ALL_QUESTIONS[qIdx];
+            const pIdx = qData.pIdx;
+
+            let allowedRarities = [];
+            if (pIdx === 0) {
+                allowedRarities = ['C', 'U', 'R'];
+            } else if (pIdx === 1) {
+                allowedRarities = ['C', 'U', 'R', 'RR', 'AR'];
+            } else if (pIdx === 2) {
+                allowedRarities = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR'];
+            } else if (pIdx === 3) {
+                allowedRarities = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'UR'];
+            } else {
+                allowedRarities = ['C', 'U', 'R', 'RR', 'AR', 'SR', 'SAR', 'UR', 'MUR'];
+            }
+
+            const pool = POKEMON_CARDS.filter(c => allowedRarities.includes(c.rarity));
+            return pickWeightedCard(pool);
+        }
+
+        function checkAnswer() {
+            if (isProcessingAnswer) return;
+            const qData = ALL_QUESTIONS[currentGlobalQIdx];
+            const expectedAns = qData.n1 + qData.n2;
+            const userAns = getEnteredValue();
+
+            const wrongMsg = document.getElementById('wrong-msg');
+            const feedbackOverlay = document.getElementById('feedback-overlay');
+            const cardModal = document.getElementById('card-get-modal');
+
+            if (userAns === expectedAns) {
+                isProcessingAnswer = true;
+                playSound('correct');
+
+                feedbackOverlay.classList.remove('hidden');
+
+                const isFirstClear = !clearedFlags[currentGlobalQIdx];
+                clearedFlags[currentGlobalQIdx] = true;
+
+                const rewardCard = getRewardCardForQuestion(currentGlobalQIdx, isFirstClear);
+                if (!ownedCards.includes(rewardCard.id)) {
+                    ownedCards.push(rewardCard.id);
+                }
+
+                saveProgress();
+
+                setTimeout(() => {
+                    feedbackOverlay.classList.add('hidden');
+
+                    const previewContainer = document.getElementById('get-card-preview-container');
+                    if (previewContainer) {
+                        previewContainer.innerHTML = createCardHtml(rewardCard, false);
+                    }
+                    playSound('card');
+                    cardModal.classList.remove('hidden');
+
+                    const allCleared = clearedFlags.every(Boolean);
+                    if (allCleared) {
+                        launchConfetti();
+                        playSound('fanfare');
+                    }
+                }, 1200);
+
+            } else {
+                playSound('wrong');
+                wrongMsg.classList.remove('opacity-0');
+                enteredDigits = [];
+                renderAnswerRow();
+                
+                const cardBox = document.getElementById('hissan-card');
+                if (cardBox) {
+                    cardBox.classList.add('shake');
+                    setTimeout(() => cardBox.classList.remove('shake'), 450);
+                }
+
+                setTimeout(() => {
+                    wrongMsg.classList.add('opacity-0');
+                }, 2500);
+            }
+        }
+
+        function closeCardGetModal() {
+            document.getElementById('card-get-modal').classList.add('hidden');
+            isProcessingAnswer = false;
+            enteredDigits = [];
+
+            const allCleared = clearedFlags.every(Boolean);
+            if (allCleared) {
+                document.getElementById('all-clear-modal').classList.remove('hidden');
+                return;
+            }
+
+            if (currentGlobalQIdx < TOTAL_QUESTIONS - 1) {
+                currentGlobalQIdx++;
+                renderQuestion();
+            } else {
+                let nextUncleared = clearedFlags.findIndex(flag => !flag);
+                if (nextUncleared !== -1) {
+                    currentGlobalQIdx = nextUncleared;
+                    renderQuestion();
+                } else {
+                    showMenu();
+                }
+            }
+        }
+
+        function createCardHtml(card, isModal = false) {
+            const scaleClass = isModal ? 'w-56 h-80 sm:w-64 sm:h-96' : 'w-48 h-72';
+            const rarityBadgeMap = {
+                'C': '● C', 'U': '◆ U', 'R': '★ R', 'RR': '★★ RR',
+                'AR': '🎨 AR', 'SR': '輝 SR', 'SAR': '✨ SAR', 'UR': '🏆 UR', 'MUR': '👑 MUR'
+            };
+            const rarityBadge = rarityBadgeMap[card.rarity] || card.rarity;
+
+            const isFoilRarity = ['AR', 'SR', 'SAR', 'UR', 'MUR'].includes(card.rarity);
+            let extraEffectClass = isFoilRarity ? 'card-foil' : '';
+            let borderStyle = 'border-amber-300/80';
+
+            if (card.rarity === 'MUR') {
+                extraEffectClass = 'card-foil animate-rainbow-glow';
+                borderStyle = 'border-yellow-200';
+            } else if (card.rarity === 'UR') {
+                extraEffectClass = 'card-foil';
+                borderStyle = 'border-yellow-400 gold-glow';
+            } else if (card.rarity === 'SAR' || card.rarity === 'SR') {
+                extraEffectClass = 'card-foil';
+                borderStyle = 'border-pink-300 super-glow';
+            }
+
+            const nameClass = isModal 
+                ? 'text-xs sm:text-sm tracking-wide text-amber-200 drop-shadow-md leading-tight break-words font-black max-w-[140px]' 
+                : 'text-sm sm:text-base tracking-wide truncate max-w-[110px] drop-shadow-md text-amber-200';
+
+            const brightNames = ['ピカチュウ', 'ライチュウ', 'サンダー', 'ミライドン', 'パモ', 'デデンネ', 'アルセウス', 'ルギア', 'ミュウ', 'ピチュー', 'プリン', 'トゲピー', 'ピッピ', 'コダック', 'イーブイ', 'ニャース', 'ポッポ'];
+            let isBrightChar = brightNames.some(b => card.name.includes(b));
+            if (card.name.includes('ポッチャマ') || card.name.includes('カイオーガ')) {
+                isBrightChar = false;
+            }
+
+            const illusBgClass = isBrightChar 
+                ? 'bg-slate-900/60 border-white/80 shadow-sm' 
+                : 'bg-white/25 border-white/40 shadow-md';
+
+            const glowClass = isBrightChar
+                ? 'from-white/30 via-slate-800/20 to-transparent'
+                : 'from-white/70 via-white/30 to-transparent';
+
+            return `
+                <div class="relative ${scaleClass} rounded-2xl p-2.5 bg-gradient-to-b ${card.bgTone} border-4 ${borderStyle} shadow-2xl flex flex-col justify-between ${extraEffectClass} text-white overflow-hidden select-none">
+                    
+                    <div class="flex justify-between items-center z-10 font-black border-b border-white/20 pb-1">
+                        <span class="${nameClass}">${card.name}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full ${card.typeBg} font-bold shadow-sm shrink-0">HP ${card.hp}</span>
+                    </div>
+
+                    <div class="my-1.5 flex-1 rounded-xl ${illusBgClass} border flex items-center justify-center relative overflow-hidden shadow-inner min-h-[110px]">
+                        <div class="absolute inset-0 opacity-50 bg-[radial-gradient(circle,_var(--tw-gradient-stops))] ${glowClass}"></div>
+                        ${getPokemonSvgIllustration(card)}
+                    </div>
+
+                    <div class="bg-slate-950/70 rounded-xl p-1.5 border border-white/10 z-10 space-y-1">
+                        <div class="flex justify-between items-center text-xs font-bold">
+                            <span class="text-amber-300 flex items-center gap-1">
+                                <span>${card.cost}</span>
+                                <span>${card.attack}</span>
+                            </span>
+                            <span class="text-sm font-black text-rose-400">${card.damage}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-between items-center z-10 text-[10px] text-amber-200/80 pt-1 font-bold">
+                        <span>${rarityBadge}</span>
+                        <span class="uppercase tracking-widest text-amber-400">${card.rarity}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getPokemonSvgIllustration(card) {
+            const accent = card.accentColor || '#f59e0b';
+            const scale = card.scale || 1.0;
+            const name = card.name || '';
+
+            if (name === 'キャタピー') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐛</div>`;
+            if (name === 'コラッタ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐀</div>`;
+            if (name === 'ポッポ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐦</div>`;
+            if (name === 'ニャース') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐱</div>`;
+            if (name === 'コダック') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐥</div>`;
+            if (name === 'パモ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐹</div>`;
+            if (name.includes('モクロー')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F989;</div>`;
+            if (name.includes('イーブイ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F436;</div>`;
+            if (name === 'トゲピー') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐣</div>`;
+            if (name === 'フシギダネ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🧄</div>`;
+            if (name.includes('ゼニガメ') || name.includes('カメックス')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐢</div>`;
+            if (name.includes('ポッチャマ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F427;</div>`;
+            if (name === 'シャワーズ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦭</div>`;
+            if (name === 'プリン') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐽</div>`;
+            if (name === 'ケーシィ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦊</div>`;
+            if (name === 'ピッピ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐖</div>`;
+            if (name === 'メノクラゲ') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🪼</div>`;
+            if (name === 'ギャラドス') return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐉</div>`;
+            if (name.includes('ラプラス')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F40B;</div>`;
+            if (name.includes('ガーディ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F42F;</div>`;
+            if (name.includes('ストライク')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F997;</div>`;
+            if (name.includes('エレブー')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F405;</div>`;
+            if (name.includes('ゲッコウガ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F9E3;</div>`;
+            if (name.includes('サーナイト')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F9DA;</div>`;
+            if (name.includes('ゲンガー')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F608;</div>`;
+            if (name.includes('ルカリオ') || name.includes('リオル')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F98A;</div>`;
+            if (name.includes('カビゴン')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F99B;</div>`;
+            if (name.includes('デデンネ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F439;</div>`;
+            if (name.includes('レックウザ') || name.includes('レックーザ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F432;</div>`;
+            if (name.includes('ナンジャモ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F469;</div>`;
+            if (name.includes('カイリュー')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">&#x1F42A;</div>`;
+            if (name.includes('ウパー')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🐸</div>`;
+            if (name.includes('チコリータ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🌱</div>`;
+            if (name.includes('ヒノアラシ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦔</div>`;
+            if (name.includes('ディアルガ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦕</div>`;
+            if (name.includes('パルキア')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦖</div>`;
+            if (name.includes('ゾロアーク')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦊</div>`;
+            if (name.includes('ホウオウ')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🦅</div>`;
+            if (name.includes('グラードン')) return `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl drop-shadow-lg select-none">🌋</div>`;
+
+            let svgContent = '';
+
+            if (name.includes('ピチュー') || name.includes('ピカチュウ') || name.includes('ライチュウ')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <polygon points="6,2 11,10 4,14" fill="#000000"/>
+                        <polygon points="26,2 21,10 28,14" fill="#000000"/>
+                        <ellipse cx="7" cy="8" rx="3" ry="6" fill="#facc15" transform="rotate(-20 7 8)"/>
+                        <ellipse cx="25" cy="8" rx="3" ry="6" fill="#facc15" transform="rotate(20 25 8)"/>
+                        <circle cx="16" cy="18" r="10" fill="#facc15"/>
+                        <circle cx="12" cy="16" r="1.5" fill="#000000"/>
+                        <circle cx="20" cy="16" r="1.5" fill="#000000"/>
+                        <circle cx="9" cy="20" r="2.5" fill="#ef4444"/>
+                        <circle cx="23" cy="20" r="2.5" fill="#ef4444"/>
+                        <path d="M14 21 Q16 23 18 21" stroke="#000000" stroke-width="1.5" fill="none"/>
+                        <polygon points="24,24 28,16 26,28 31,22" fill="#eab308" stroke="#000" stroke-width="0.5"/>
+                    </g>
+                `;
+            } else if (name.includes('リザードン') || name.includes('ヒトカゲ')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <path d="M4 14 C1 6 12 4 12 14 Z" fill="#065f46" stroke="#ea580c" stroke-width="1"/>
+                        <path d="M28 14 C31 6 20 4 20 14 Z" fill="#065f46" stroke="#ea580c" stroke-width="1"/>
+                        <path d="M10 26 C10 16 22 16 22 26 Z" fill="#ea580c"/>
+                        <ellipse cx="16" cy="22" rx="4" ry="5" fill="#fef08a"/>
+                        <path d="M11 12 Q16 6 21 12 Q16 16 11 12 Z" fill="#ea580c"/>
+                        <circle cx="14" cy="11" r="1" fill="#000"/>
+                        <circle cx="18" cy="11" r="1" fill="#000"/>
+                        <polygon points="16,2 18,7 14,7" fill="#ef4444"/>
+                        <polygon points="16,0 19,5 13,5" fill="#f59e0b"/>
+                    </g>
+                `;
+            } else if (name.includes('フシギバナ')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="8" r="7" fill="#ec4899"/>
+                        <circle cx="16" cy="8" r="3" fill="#facc15"/>
+                        <path d="M4 16 C8 10 12 14 16 12" stroke="#15803d" stroke-width="4" fill="none"/>
+                        <path d="M28 16 C24 10 20 14 16 12" stroke="#15803d" stroke-width="4" fill="none"/>
+                        <rect x="8" y="16" width="16" height="12" rx="6" fill="#0d9488"/>
+                        <circle cx="12" cy="20" r="1.5" fill="#ef4444"/>
+                        <circle cx="20" cy="20" r="1.5" fill="#ef4444"/>
+                    </g>
+                `;
+            } else if (name.includes('ミュウツー') || name.includes('ミュウ')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="16" r="13" fill="none" stroke="#a855f7" stroke-width="2" stroke-dasharray="4 2"/>
+                        <path d="M12 28 Q4 20 12 12 Q20 16 20 28 Z" fill="#a855f7" opacity="0.8"/>
+                        <circle cx="16" cy="12" r="6" fill="#e9d5ff"/>
+                        <circle cx="14" cy="11" r="1" fill="#38bdf8"/>
+                        <circle cx="18" cy="11" r="1" fill="#38bdf8"/>
+                        <circle cx="24" cy="10" r="4" fill="#38bdf8" opacity="0.9"/>
+                    </g>
+                `;
+            } else if (name.includes('サンダース')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <polygon points="16,2 20,8 26,4 22,12 30,12 22,16 28,24 18,20 16,30 14,20 4,24 10,16 2,12 10,12 6,4 12,8" fill="#facc15"/>
+                        <circle cx="16" cy="16" r="6" fill="#ffffff"/>
+                        <circle cx="14" cy="15" r="1.5" fill="#000"/>
+                        <circle cx="18" cy="15" r="1.5" fill="#000"/>
+                    </g>
+                `;
+            } else if (name.includes('ブースター')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <path d="M6 10 C6 2 26 2 26 10 Z" fill="#ea580c"/>
+                        <ellipse cx="16" cy="18" rx="10" ry="8" fill="#fef08a"/>
+                        <circle cx="16" cy="14" r="5" fill="#ea580c"/>
+                        <circle cx="14" cy="13" r="1" fill="#000"/>
+                        <circle cx="18" cy="13" r="1" fill="#000"/>
+                        <path d="M16 2 L19 7 L13 7 Z" fill="#fef08a"/>
+                    </g>
+                `;
+            } else if (name.includes('ロコン')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="16" r="8" fill="#ea580c"/>
+                        <circle cx="12" cy="8" r="3" fill="#fef08a"/>
+                        <circle cx="16" cy="6" r="3" fill="#fef08a"/>
+                        <circle cx="20" cy="8" r="3" fill="#fef08a"/>
+                        <path d="M8 24 Q4 18 10 20 M12 26 Q8 20 14 22 M24 24 Q28 18 22 20" stroke="#f97316" stroke-width="3" fill="none"/>
+                    </g>
+                `;
+            } else if (name.includes('パルシェン')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <polygon points="16,2 20,8 28,6 24,14 30,22 20,22 16,30 12,22 2,22 8,14 4,6 12,8" fill="#3b0764"/>
+                        <circle cx="16" cy="16" r="7" fill="#000000"/>
+                        <circle cx="13" cy="15" r="1.5" fill="#ffffff"/>
+                        <circle cx="19" cy="15" r="1.5" fill="#ffffff"/>
+                        <polygon points="16,8 18,12 14,12" fill="#ffffff"/>
+                    </g>
+                `;
+            } else if (name.includes('フリーザー')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <path d="M2 14 Q16 4 30 14 Q16 20 2 14 Z" fill="#38bdf8"/>
+                        <circle cx="16" cy="14" r="5" fill="#0284c7"/>
+                        <polygon points="14,4 16,0 18,4" fill="#e0f2fe"/>
+                        <path d="M16 19 C10 28 22 28 16 32" stroke="#e0f2fe" stroke-width="2" fill="none"/>
+                    </g>
+                `;
+            } else if (name.includes('サンダー')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <polygon points="16,2 19,10 28,4 22,14 30,12 22,20 26,30 16,22 6,30 10,20 2,12 10,14 4,4 13,10" fill="#facc15"/>
+                        <polygon points="16,6 18,12 14,12" fill="#000000"/>
+                        <circle cx="16" cy="16" r="4" fill="#eab308"/>
+                    </g>
+                `;
+            } else if (name.includes('ファイヤー')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <path d="M2 18 C8 4 24 4 30 18 C20 12 12 12 2 18 Z" fill="#ef4444"/>
+                        <path d="M6 16 C10 8 22 8 26 16 C20 14 12 14 6 16 Z" fill="#f97316"/>
+                        <circle cx="16" cy="14" r="4" fill="#facc15"/>
+                        <path d="M14 6 L16 1 L18 6 Z" fill="#ef4444"/>
+                    </g>
+                `;
+            } else if (name.includes('ハッサム')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <rect x="10" y="8" width="12" height="16" rx="6" fill="#dc2626"/>
+                        <circle cx="6" cy="14" r="4" fill="#991b1b" stroke="#facc15" stroke-width="1"/>
+                        <circle cx="26" cy="14" r="4" fill="#991b1b" stroke="#facc15" stroke-width="1"/>
+                        <circle cx="14" cy="12" r="1.5" fill="#facc15"/>
+                        <circle cx="18" cy="12" r="1.5" fill="#facc15"/>
+                    </g>
+                `;
+            } else if (name.includes('アルセウス')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="16" r="11" fill="none" stroke="#fde047" stroke-width="3"/>
+                        <polygon points="16,2 20,12 30,12 22,18 25,28 16,22 7,28 10,18 2,12 12,12" fill="#ffffff" opacity="0.9"/>
+                        <circle cx="16" cy="16" r="4" fill="#eab308"/>
+                        <circle cx="16" cy="16" r="2" fill="#10b981"/>
+                    </g>
+                `;
+            } else if (name.includes('ミライドン')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="16" r="12" fill="none" stroke="#06b6d4" stroke-width="2"/>
+                        <path d="M10 24 C10 10 22 10 22 24 Z" fill="#8b5cf6"/>
+                        <circle cx="16" cy="18" r="5" fill="#06b6d4"/>
+                        <polygon points="16,4 19,10 13,10" fill="#a855f7"/>
+                    </g>
+                `;
+            } else if (name.includes('コライドン')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="16" r="10" fill="#e11d48"/>
+                        <path d="M6 10 L16 2 L26 10 Z" fill="#38bdf8"/>
+                        <circle cx="16" cy="16" r="5" fill="#ffffff"/>
+                        <circle cx="16" cy="16" r="3" fill="#1e293b"/>
+                    </g>
+                `;
+            } else if (name.includes('ギラティナ')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <path d="M2 8 Q16 20 30 8 M2 24 Q16 12 30 24" stroke="#dc2626" stroke-width="4" fill="none"/>
+                        <circle cx="16" cy="16" r="8" fill="#64748b"/>
+                        <path d="M12 8 L16 2 L20 8 Z" fill="#f59e0b"/>
+                        <circle cx="14" cy="15" r="1.5" fill="#ef4444"/>
+                        <circle cx="18" cy="15" r="1.5" fill="#ef4444"/>
+                    </g>
+                `;
+            } else if (name.includes('ルギア')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <path d="M2 16 Q16 2 30 16 Q16 26 2 16 Z" fill="#f8fafc"/>
+                        <path d="M10 14 Q16 10 22 14" stroke="#1e40af" stroke-width="3" fill="none"/>
+                        <circle cx="16" cy="14" r="2" fill="#1e40af"/>
+                    </g>
+                `;
+            } else if (name.includes('カイオーガ')) {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <ellipse cx="16" cy="16" rx="14" ry="9" fill="#1e3a8a"/>
+                        <path d="M6 16 L26 16" stroke="#ef4444" stroke-width="2"/>
+                        <circle cx="10" cy="13" r="1.5" fill="#ffffff"/>
+                        <circle cx="22" cy="13" r="1.5" fill="#ffffff"/>
+                    </g>
+                `;
+            } else {
+                svgContent = `
+                    <g filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.5))">
+                        <circle cx="16" cy="16" r="10" fill="${accent}"/>
+                        <polygon points="16,4 19,12 28,12 21,17 24,25 16,20 8,25 11,17 4,12 13,12" fill="#ffffff" opacity="0.6"/>
+                    </g>
+                `;
+            }
+
+            return `
+                <svg class="w-20 h-20" viewBox="0 0 32 32" style="transform: scale(${scale});">
+                    ${svgContent}
+                </svg>
+            `;
+        }
+
+        function showAlbum() {
+            document.getElementById('album-screen').classList.remove('hidden');
+            renderAlbumFilters();
+            renderAlbumGrid();
+        }
+
+        function closeAlbum() {
+            document.getElementById('album-screen').classList.add('hidden');
+        }
+
+        function renderAlbumFilters() {
+            const filterBar = document.getElementById('album-filter-bar');
+            if (!filterBar) return;
+
+            const filters = ['ALL', ...RARITY_ORDER];
+            filterBar.innerHTML = '';
+
+            filters.forEach(rarity => {
+                const btn = document.createElement('button');
+                let count = 0;
+                let totalInRarity = 0;
+
+                if (rarity === 'ALL') {
+                    count = ownedCards.length;
+                    totalInRarity = POKEMON_CARDS.length;
+                } else {
+                    count = POKEMON_CARDS.filter(c => c.rarity === rarity && ownedCards.includes(c.id)).length;
+                    totalInRarity = POKEMON_CARDS.filter(c => c.rarity === rarity).length;
+                }
+
+                const isActive = currentAlbumFilter === rarity;
+
+                btn.className = `px-3 py-1 rounded-full text-xs font-black whitespace-nowrap transition-all ${
+                    isActive 
+                        ? 'bg-pink-400 text-slate-900 border-2 border-white shadow' 
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-indigo-500/30'
+                }`;
+                btn.innerText = `${rarity} (${count}/${totalInRarity})`;
+                btn.onclick = () => {
+                    currentAlbumFilter = rarity;
+                    renderAlbumFilters();
+                    renderAlbumGrid();
+                };
+                filterBar.appendChild(btn);
+            });
+        }
+
+        function renderAlbumGrid() {
+            const grid = document.getElementById('album-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            let filteredCards = POKEMON_CARDS;
+            if (currentAlbumFilter !== 'ALL') {
+                filteredCards = POKEMON_CARDS.filter(c => c.rarity === currentAlbumFilter);
+            }
+
+            filteredCards.forEach(card => {
+                const isOwned = ownedCards.includes(card.id);
+                const wrapper = document.createElement('div');
+                wrapper.className = "flex justify-center items-center cursor-pointer transform hover:scale-105 transition-transform duration-200";
+
+                if (isOwned) {
+                    wrapper.innerHTML = createCardHtml(card);
+                    wrapper.onclick = () => showCardDetailModal(card);
+                } else {
+                    wrapper.innerHTML = `
+                        <div class="w-full h-44 sm:h-52 rounded-2xl bg-slate-900/80 border-2 border-slate-700 flex flex-col items-center justify-center text-slate-600 p-2 text-center shadow-inner relative overflow-hidden">
+                            <i data-lucide="lock" class="w-8 h-8 mb-2 text-slate-600"></i>
+                            <span class="text-xs font-bold text-slate-500">???</span>
+                            <span class="text-[10px] text-slate-600 mt-1 uppercase font-bold">${card.rarity}</span>
+                        </div>
+                    `;
+                }
+                grid.appendChild(wrapper);
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function showCardDetailModal(card) {
+            const container = document.getElementById('detail-card-container');
+            if (!container) return;
+            container.innerHTML = createCardHtml(card, true);
+            document.getElementById('card-detail-modal').classList.remove('hidden');
+        }
+
+        function closeCardDetailModal() {
+            document.getElementById('card-detail-modal').classList.add('hidden');
+        }
+
+        let confettiAnimId = null;
+        function resizeCanvas() {
+            const canvas = document.getElementById('confetti-canvas');
+            if (canvas) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+        }
+
+        function launchConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            resizeCanvas();
+
+            const colors = ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#84cc16', '#eab308', '#f97316'];
+            
+            const particles = [];
+            for (let i = 0; i < 150; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height - canvas.height,
+                    size: Math.random() * 8 + 5,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    vx: Math.random() * 2 - 1,
+                    vy: Math.random() * 3 + 2,
+                    rot: Math.random() * 360,
+                    vRot: Math.random() * 10 - 5
+                });
+            }
+
+            const fireworks = [];
+            function createFirework() {
+                const fx = Math.random() * (canvas.width * 0.8) + canvas.width * 0.1;
+                const fy = Math.random() * (canvas.height * 0.4) + canvas.height * 0.1;
+                const count = Math.floor(Math.random() * 35) + 40;
+                const fwColor = colors[Math.floor(Math.random() * colors.length)];
+                for (let i = 0; i < count; i++) {
+                    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.2;
+                    const speed = Math.random() * 6 + 3;
+                    fireworks.push({
+                        x: fx, y: fy,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        size: Math.random() * 4 + 2,
+                        color: fwColor,
+                        alpha: 1,
+                        decay: Math.random() * 0.02 + 0.015
+                    });
+                }
+            }
+
+            let frame = 0;
+            if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+
+            function loop() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                frame++;
+
+                ctx.save();
+                const angle = (frame * 0.02);
+                const spotlightColors = ['rgba(255, 230, 0, 0.15)', 'rgba(236, 72, 153, 0.15)', 'rgba(59, 130, 246, 0.15)'];
+                for (let i = 0; i < 3; i++) {
+                    const a = angle + (i * (Math.PI * 2 / 3));
+                    const x1 = canvas.width / 2;
+                    const y1 = 0;
+                    const x2 = x1 + Math.cos(a) * canvas.height * 1.2;
+                    const y2 = Math.sin(a) * canvas.height * 1.2;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2 - 120, y2);
+                    ctx.lineTo(x2 + 120, y2);
+                    ctx.closePath();
+                    ctx.fillStyle = spotlightColors[i];
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                if (frame % 25 === 0) createFirework();
+
+                for (let i = fireworks.length - 1; i >= 0; i--) {
+                    const fw = fireworks[i];
+                    fw.x += fw.vx;
+                    fw.y += fw.vy;
+                    fw.vy += 0.05;
+                    fw.alpha -= fw.decay;
+                    if (fw.alpha <= 0) {
+                        fireworks.splice(i, 1);
+                        continue;
+                    }
+                    ctx.save();
+                    ctx.globalAlpha = fw.alpha;
+                    ctx.fillStyle = fw.color;
+                    ctx.beginPath();
+                    ctx.arc(fw.x, fw.y, fw.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.rot += p.vRot;
+                    if (p.y > canvas.height) {
+                        p.y = -10;
+                        p.x = Math.random() * canvas.width;
+                    }
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate((p.rot * Math.PI) / 180);
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    ctx.restore();
+                });
+
+                confettiAnimId = requestAnimationFrame(loop);
+            }
+            loop();
+
+            setTimeout(() => {
+                if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 9000);
+        }
+
+        function restartAll() {
+            document.getElementById('all-clear-modal').classList.add('hidden');
+            clearedFlags = new Array(TOTAL_QUESTIONS).fill(false);
+            currentGlobalQIdx = 0;
+            saveProgress();
+            showMenu();
+        }
+    </script>
+</body>
+</html>
